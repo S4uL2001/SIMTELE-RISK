@@ -1,16 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSimulationStore } from '@/store/useSimulationStore';
-import { guardarSimulacion } from '@/services/simulationService';
+import { saveSimulationToDB } from '@/services/simulationService'; // <-- IMPORTACIÓN CORREGIDA
 
 export default function ControlPanel() {
   const { status, start, pause, resume, reset, tick, tiempoActual, config } = useSimulationStore();
   const requestRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number>(0);
   
-  // Estado para el botón de guardar
   const [guardando, setGuardando] = useState(false);
 
-  // Bucle de simulación (Motor de física)
   useEffect(() => {
     const animate = (time: number) => {
       if (lastTimeRef.current !== 0) {
@@ -27,7 +25,6 @@ export default function ControlPanel() {
     };
   }, [tick]);
 
-  // Función para guardar en Supabase
   const handleGuardar = async () => {
     try {
       setGuardando(true);
@@ -37,20 +34,30 @@ export default function ControlPanel() {
       );
       
       if (nombre) {
-        await guardarSimulacion(config, nombre);
-        alert('¡Experimento guardado en Supabase con éxito! Revisa la pestaña de Historial.');
+        // Usamos la nueva función que guarda cualquier módulo
+        const exito = await saveSimulationToDB(
+          'Módulo 4: Sensores', 
+          config.escenario.tipo, 
+          config, 
+          { estado: 'completado' }
+        );
+        
+        if (exito) {
+          alert('¡Experimento guardado en Supabase con éxito!');
+        } else {
+          alert('Hubo un error al guardar en la base de datos.');
+        }
       }
     } catch (error: any) {
       console.error(error);
-      // ESTA LÍNEA ES LA CLAVE: Mostrará el error real de Supabase en pantalla
       alert(`Error técnico: ${error.message || 'Desconocido'}`); 
     } finally {
       setGuardando(false);
     }
   };
+
   return (
     <div className="bg-panel border border-panelBorder rounded-lg p-4 flex flex-col gap-4">
-      {/* Reloj */}
       <div className="bg-[#0b1120] rounded p-3 text-center border border-panelBorder">
         <div className="text-xs text-slate-400 mb-1">TIEMPO DE SIMULACIÓN</div>
         <div className="font-mono text-3xl text-accent">
@@ -59,7 +66,6 @@ export default function ControlPanel() {
         <div className="text-xs text-slate-500 mt-1">Límite: {config.duracionSeg}s</div>
       </div>
 
-      {/* Botones de Control */}
       <div className="grid grid-cols-2 gap-2">
         {status === 'idle' || status === 'finished' ? (
           <button onClick={start} className="col-span-2 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded transition">
@@ -83,7 +89,6 @@ export default function ControlPanel() {
         )}
       </div>
 
-      {/* Botón de Guardar en Base de Datos */}
       <button 
         onClick={handleGuardar} 
         disabled={guardando || status === 'running'}
@@ -92,7 +97,6 @@ export default function ControlPanel() {
         {guardando ? 'GUARDANDO EN BD...' : 'GUARDAR EXPERIMENTO'}
       </button>
 
-      {/* Controles de parámetros */}
       <div className="mt-4 pt-4 border-t border-panelBorder flex flex-col gap-3">
         <label className="text-sm text-slate-300 flex justify-between">
           Velocidad de reproducción: <span className="font-mono text-accent">{config.playbackRate}x</span>

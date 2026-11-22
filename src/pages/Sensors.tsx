@@ -1,47 +1,78 @@
+import { useState } from 'react';
 import { useSimulationStore } from '@/store/useSimulationStore';
-import { SENSOR_LABELS } from '@/types/sensor';
 
 export default function Sensors() {
-  const { config } = useSimulationStore();
-  const { anemometro, celulaCarga } = config.sensores;
+  const [activeTab, setActiveTab] = useState(1);
+  const { config } = useSimulationStore(); // Solo para el M4
 
   return (
     <div className="max-w-5xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-100">Sensores y Modelos Matemáticos</h1>
-        <p className="text-slate-400">Ecuaciones analíticas de referencia (Verdad oculta).</p>
+        <h1 className="text-2xl font-bold text-slate-100">Modelos Matemáticos del Sistema</h1>
+        <p className="text-slate-400">Ecuaciones analíticas de referencia para los 4 módulos.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        
-        {/* Tarjeta Anemómetro */}
-        <div className="bg-panel border border-panelBorder rounded-lg p-6">
-          <h2 className="text-xl font-bold text-accent mb-4">{SENSOR_LABELS.anemometro}</h2>
-          <div className="bg-[#0b1120] p-4 rounded border border-panelBorder font-mono text-center mb-4 text-green-400">
-            v(t) = {anemometro.vMedia} + {anemometro.amplitud} · sin({anemometro.frecuenciaAngular} · t)
-          </div>
-          <ul className="text-sm text-slate-300 space-y-2">
-            <li><strong className="text-slate-400">Variable:</strong> Velocidad del viento (v)</li>
-            <li><strong className="text-slate-400">Unidad:</strong> m/s</li>
-            <li><strong className="text-slate-400">Umbral de alerta:</strong> {anemometro.umbral} m/s</li>
-            <li><strong className="text-slate-400">Fenómeno:</strong> Ráfagas oscilatorias.</li>
-          </ul>
-        </div>
+      {/* Tabs */}
+      <div className="flex gap-2 mb-6 border-b border-panelBorder pb-2">
+        {[1, 2, 3, 4].map((mod) => (
+          <button
+            key={mod}
+            onClick={() => setActiveTab(mod)}
+            className={`px-4 py-2 rounded-t-lg font-bold transition ${
+              activeTab === mod ? 'bg-panel text-accent border-t-2 border-accent' : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Módulo {mod}
+          </button>
+        ))}
+      </div>
 
-        {/* Tarjeta Célula de Carga */}
-        <div className="bg-panel border border-panelBorder rounded-lg p-6">
-          <h2 className="text-xl font-bold text-accent mb-4">{SENSOR_LABELS.celula_carga}</h2>
-          <div className="bg-[#0b1120] p-4 rounded border border-panelBorder font-mono text-center mb-4 text-green-400 text-sm overflow-x-auto">
-            T(t) = {celulaCarga.tMedia} + {celulaCarga.amplitudSeno} · sin({celulaCarga.frecuenciaAngular}t - {celulaCarga.desfase}) + {celulaCarga.amplitudExponencial} · e^(-{celulaCarga.amortiguamiento}t)
+      <div className="bg-panel border border-panelBorder rounded-lg p-6">
+        {activeTab === 1 && (
+          <div>
+            <h2 className="text-xl font-bold text-accent mb-4">Módulo 1: Frenado (EDO)</h2>
+            <p className="text-slate-300 mb-4">Sistema de ecuaciones diferenciales para la cinemática de frenado:</p>
+            <div className="font-mono text-green-400 bg-[#0b1120] p-4 rounded text-center text-lg">
+              dx/dt = v(t)<br/>
+              dv/dt = -a
+            </div>
           </div>
-          <ul className="text-sm text-slate-300 space-y-2">
-            <li><strong className="text-slate-400">Variable:</strong> Tensión del cable (T)</li>
-            <li><strong className="text-slate-400">Unidad:</strong> kN</li>
-            <li><strong className="text-slate-400">Umbral de alerta:</strong> {celulaCarga.umbral} kN</li>
-            <li><strong className="text-slate-400">Fenómeno:</strong> Respuesta amortiguada por el viento.</li>
-          </ul>
-        </div>
+        )}
 
+        {activeTab === 2 && (
+          <div>
+            <h2 className="text-xl font-bold text-accent mb-4">Módulo 2: Deterioro (Raíces)</h2>
+            <p className="text-slate-300 mb-4">Modelo cuadrático de degradación mecánica:</p>
+            <div className="font-mono text-green-400 bg-[#0b1120] p-4 rounded text-center text-lg">
+              D(t) = d₀ + αt + βt²
+            </div>
+          </div>
+        )}
+
+        {activeTab === 3 && (
+          <div>
+            <h2 className="text-xl font-bold text-accent mb-4">Módulo 3: Viento (EDO)</h2>
+            <p className="text-slate-300 mb-4">Oscilador armónico forzado y amortiguado:</p>
+            <div className="font-mono text-green-400 bg-[#0b1120] p-4 rounded text-center text-lg">
+              dv/dt = (F₀cos(ωt) - cv - kx) / m
+            </div>
+          </div>
+        )}
+
+        {activeTab === 4 && (
+          <div>
+            <h2 className="text-xl font-bold text-accent mb-4">Módulo 4: Telemetría (Sensores)</h2>
+            <p className="text-slate-300 mb-4">Señales sintéticas de viento y tensión:</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="font-mono text-green-400 bg-[#0b1120] p-4 rounded text-center">
+                v(t) = {config.sensores.anemometro.vMedia} + {config.sensores.anemometro.amplitud}·sin({config.sensores.anemometro.frecuenciaAngular}t)
+              </div>
+              <div className="font-mono text-green-400 bg-[#0b1120] p-4 rounded text-center text-sm">
+                T(t) = {config.sensores.celulaCarga.tMedia} + {config.sensores.celulaCarga.amplitudSeno}·sin({config.sensores.celulaCarga.frecuenciaAngular}t - {config.sensores.celulaCarga.desfase}) + {config.sensores.celulaCarga.amplitudExponencial}e^(-{config.sensores.celulaCarga.amortiguamiento}t)
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

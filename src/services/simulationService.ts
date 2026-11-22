@@ -1,78 +1,113 @@
 import { supabase } from './supabase';
-import { SimulationConfig } from '@/types/simulation';
 
-export async function guardarSimulacion(config: SimulationConfig, nombre: string) {
+/**
+ * Guarda una simulación completa en la base de datos (Caso -> Escenario -> Simulación)
+ */
+export async function saveSimulationToDB(
+  modulo: string, 
+  escenario: string, 
+  parametros: any, 
+  resultados: any
+) {
   try {
-    // 1. Buscar Caso de Estudio. Si no existe, lo creamos.
-    let { data: casos } = await supabase.from('caso_estudio').select('id').limit(1);
+    // 1. Buscar o crear el Caso de Estudio
+    let { data: casos } = await supabase.from('caso_estudio').select('id').eq('nombre', modulo).limit(1);
     let casoId = casos?.[0]?.id;
 
     if (!casoId) {
       const { data: nuevoCaso, error: errorCaso } = await supabase
         .from('caso_estudio')
-        .insert({
-          nombre: 'Reconstrucción Numérica y Auditoría de Telemetría Dual',
-          descripcion: 'Módulo 4: viento y tensión con pérdida de señal.',
-          modelo_version: 'v1.0'
-        })
-        .select('id')
-        .single();
-        
-      if (errorCaso) throw new Error(`Error al crear caso: ${errorCaso.message}`);
+        .insert({ nombre: modulo, descripcion: 'Generado automáticamente', modelo_version: 'v1.0' })
+        .select('id').single();
+      if (errorCaso) throw errorCaso;
       casoId = nuevoCaso.id;
     }
 
-    // 2. Guardar Escenario
-    const { data: escenario, error: escError } = await supabase
+    // 2. Crear el Escenario
+    const { data: esc, error: escError } = await supabase
       .from('escenario')
-      .insert({
-        caso_id: casoId,
-        tipo: config.escenario.tipo,
-        parametros_json: config.sensores,
-      })
-      .select()
-      .single();
+      .insert({ caso_id: casoId, tipo: escenario, parametros_json: parametros })
+      .select().single();
+    if (escError) throw escError;
 
-    if (escError) throw new Error(`Error en escenario: ${escError.message}`);
-
-    // 3. Guardar Simulación
-    const { data: simulacion, error: simError } = await supabase
+    // 3. Crear la Simulación
+    const { error: simError } = await supabase
       .from('simulacion')
       .insert({
-        escenario_id: escenario.id,
-        nombre: nombre,
-        duracion: config.duracionSeg,
-        frecuencia_muestreo: config.frecuenciaMuestreoHz,
-        semilla_aleatoria: config.semilla,
-        estado: 'finished',
+        escenario_id: esc.id,
+        nombre: `Ejecución ${new Date().toLocaleTimeString()}`,
+        duracion: 15,
+        frecuencia_muestreo: 10,
+        semilla_aleatoria: 42,
+        estado: 'terminado',
         fecha_inicio: new Date().toISOString(),
         fecha_finalizacion: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (simError) throw new Error(`Error en simulación: ${simError.message}`);
-
-    return simulacion.id;
+      });
     
-  } catch (error: any) {
-    console.error("Error detallado de Supabase:", error.message);
-    throw error;
+    if (simError) throw simError;
+    return true;
+  } catch (error) {
+    console.error('Error guardando en Supabase:', error);
+    return false;
   }
 }
 
-export async function obtenerHistorial() {
-  const { data, error } = await supabase
-    .from('simulacion')
-    .select(`
-      id, nombre, duracion, created_at,
-      escenario (tipo)
-    `)
-    .order('created_at', { ascending: false });
+/**
+ * Obtiene todas las estadísticas para el Dashboard y el Historial.
+ * Une las tablas manualmente en JS para evitar fallos de Foreign Keys en Supabase.
+ */
+export async function getDashboardStats() {
+  try {
+    // 1. Traer todas las simulaciones (ordenadas por fecha)
+    const { data: simulaciones, error: simError } = await supabase
+      .from('simulacion')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (simError) {
+      console.warn('No se pudo conectar a Supabase (simulaciones):', simError.message);
+      return [];
+    }
 
-  if (error) {
-    console.error('❌ Error al obtener historial de Supabase:', error.message, error.details, error.hint);
-    throw error;
+    // 2. Traer todos los escenarios
+    const { data: escenarios, error: escError } = await supabase
+      .from('escenario')
+      .select('*');
+    
+    if (escError) {
+      console.warn('No se pudo conectar a Supabase (escenarios):', escError.message);
+      return [];
+    }
+
+    // 3. Traer todos los casos de estudio
+    const { data: casos, error: casoError } = await supabase
+      .from('caso_estudio')
+      .select('*');
+    
+    if (casoError) {
+      console.warn('No se pudo conectar a Supabase (casos):', casoError.message);
+      return [];
+    }
+
+    // 4. Unir los datos en JavaScript
+    const resultadosCompletos = simulaciones.map(sim => {
+      const esc = escenarios.find(e => e.id === sim.escenario_id);
+      const caso = esc ? casos.find(c => c.id === esc.caso_id) : null;
+      
+      return {
+        ...sim,
+        escenario: {
+          tipo: esc ? esc.tipo : 'NORMAL',
+          caso_estudio: { 
+            nombre: caso ? caso.nombre : 'Módulo Desconocido' 
+          }
+        }
+      };
+    });
+
+    return resultadosCompletos;
+  } catch (error) {
+    console.error('Error de red obteniendo estadísticas:', error);
+    return [];
   }
-  return data;
 }

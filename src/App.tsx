@@ -9,6 +9,15 @@ import History from './pages/History';
 import Results from './pages/Results';
 import DataDictionary from './pages/DataDictionary';
 
+// 1. Importamos el nuevo módulo
+import Module1 from './pages/Module1';
+
+import Module2 from './pages/Module2';
+
+import Module3 from './pages/Module3';
+
+import Module4 from './pages/Module4';
+
 // Placeholder para las páginas que haremos en las siguientes fases
 const Placeholder = ({ title }: { title: string }) => (
   <div className="p-6 border border-panelBorder rounded-lg bg-panel/50">
@@ -25,16 +34,22 @@ export default function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           
           <Route path="dashboard" element={<Dashboard />} />
+          
+          {/* Rutas de los módulos */}
+          <Route path="modulo1" element={<Module1 />} /> {/* 2. Nueva ruta agregada */}
+          <Route path="modulo2" element={<Module2 />} />
+          <Route path="modulo3" element={<Module3 />} />
+          <Route path="simulador" element={<Module4 />} />
+          
           <Route path="simulador" element={<Simulation />} />
+          
           <Route path="sensores" element={<Sensors />} />
           <Route path="laboratorio" element={<MathematicalLab />} />
-          
-          {/* Rutas pendientes para las próximas fases */}
           <Route path="errores" element={<ErrorAnalysis />} />
-
           <Route path="resultados" element={<Results />} />
           <Route path="historial" element={<History />} />
           <Route path="diccionario" element={<DataDictionary />} />
+          
           <Route path="*" element={<Placeholder title="404 - No encontrado" />} />
         </Route>
       </Routes>
